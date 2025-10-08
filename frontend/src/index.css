@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,15 +7,23 @@
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  place-items: center;
 }
 
 a {
@@ -22,16 +31,9 @@ a {
   color: #646cff;
   text-decoration: inherit;
 }
+
 a:hover {
   color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
 }
 
 h1 {
@@ -50,9 +52,11 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
 button:hover {
   border-color: #646cff;
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
@@ -71,7 +75,7 @@ button:focus-visible {
   }
 }
 
-/* Moved from app.jsx inline styles */
+/* Animations from provided <style> block */
 @keyframes float-slow {
   0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
   33% { transform: translate(30px, -30px) scale(1.1) rotate(120deg); }
@@ -85,42 +89,22 @@ button:focus-visible {
 }
 
 @keyframes float-fast {
-  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
-  33% { transform: translate(50px, -50px) scale(1.2) rotate(180deg); }
-  66% { transform: translate(-30px, 30px) scale(0.8) rotate(360deg); }
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50px, -50px) scale(1.2); }
 }
 
-@keyframes float-random {
-  0%, 100% { 
-    transform: translate(0, 0) scale(1) rotate(0deg); 
-    opacity: 0.7;
-  }
-  25% { 
-    transform: translate(20px, -20px) scale(0.8) rotate(90deg); 
-    opacity: 0.4;
-  }
-  50% { 
-    transform: translate(-20px, 20px) scale(1.1) rotate(180deg); 
-    opacity: 0.9;
-  }
-  75% { 
-    transform: translate(20px, 20px) scale(0.9) rotate(270deg); 
-    opacity: 0.6;
-  }
-}
-
-@keyframes float-particle {
+@keyframes float-particles {
   0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.3; }
-  25% { transform: translateY(-20px) translateX(10px) scale(1.2); opacity: 0.7; }
-  50% { transform: translateY(-40px) translateX(-5px) scale(0.8); opacity: 0.4; }
-  75% { transform: translateY(-20px) translateX(-10px) scale(1.1); opacity: 0.8; }
+  25% { transform: translateY(-40px) translateX(20px) scale(1.2); opacity: 0.6; }
+  50% { transform: translateY(-20px) translateX(-30px) scale(0.8); opacity: 0.4; }
+  75% { transform: translateY(30px) translateX(40px) scale(1.1); opacity: 0.7; }
 }
 
 @keyframes bus-bounce {
   0%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-8px) rotate(-1deg); }
-  50% { transform: translateY(-12px) rotate(1deg); }
-  75% { transform: translateY(-6px) rotate(-0.5deg); }
+  25% { transform: translateY(-8px) rotate(-0.5deg); }
+  50% { transform: translateY(-12px) rotate(0.5deg); }
+  75% { transform: translateY(-6px) rotate(-0.3deg); }
 }
 
 @keyframes bus-drive {
@@ -128,24 +112,39 @@ button:focus-visible {
   50% { transform: translateX(15px); }
 }
 
-@keyframes wheel-rotate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+@keyframes road-move {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-30px); }
 }
 
-@keyframes headlight-pulse {
-  0%, 100% { opacity: 1; filter: brightness(1); }
-  50% { opacity: 0.8; filter: brightness(1.5); }
-}
-
-@keyframes window-gleam {
-  0%, 100% { opacity: 0.9; }
-  50% { opacity: 1; filter: brightness(1.2); }
+@keyframes grid-move {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(50px, 50px); }
 }
 
 @keyframes pulse-slow {
-  0%, 100% { opacity: 0.1; }
-  50% { opacity: 0.15; }
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.1); }
+}
+
+@keyframes pulse-medium {
+  0%, 100% { opacity: 0.15; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.05); }
+}
+
+@keyframes pulse-fast {
+  0%, 100% { opacity: 0.1; transform: scale(1); }
+  50% { opacity: 0.25; transform: scale(1.02); }
+}
+
+@keyframes window-glow {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; }
+}
+
+@keyframes headlight-glow {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
 }
 
 .animate-float-slow {
@@ -160,12 +159,8 @@ button:focus-visible {
   animation: float-fast 15s ease-in-out infinite;
 }
 
-.animate-float-random {
-  animation: float-random 20s ease-in-out infinite;
-}
-
-.animate-float-particle {
-  animation: float-particle 15s ease-in-out infinite;
+.animate-float-particles {
+  animation: float-particles 25s ease-in-out infinite;
 }
 
 .animate-bus-bounce {
@@ -176,19 +171,40 @@ button:focus-visible {
   animation: bus-drive 4s ease-in-out infinite;
 }
 
-.animate-wheel-rotate {
-  animation: wheel-rotate 2s linear infinite;
-  transform-origin: center;
-}
-
-.animate-headlight-pulse {
-  animation: headlight-pulse 2s ease-in-out infinite;
-}
-
-.animate-window-gleam {
-  animation: window-gleam 3s ease-in-out infinite;
+.animate-road-move {
+  animation: road-move 1s linear infinite;
 }
 
 .animate-pulse-slow {
   animation: pulse-slow 4s ease-in-out infinite;
+}
+
+.animate-pulse-medium {
+  animation: pulse-medium 3s ease-in-out infinite;
+}
+
+.animate-pulse-fast {
+  animation: pulse-fast 2s ease-in-out infinite;
+}
+
+.animate-window-glow {
+  animation: window-glow 2s ease-in-out infinite;
+}
+
+.animate-headlight-glow {
+  animation: headlight-glow 1.5s ease-in-out infinite;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .min-h-\[80vh\] {
+    min-height: 80vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .mx-4 {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
 }
