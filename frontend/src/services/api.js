@@ -15,7 +15,7 @@ export const api = {
   me: () => request('/auth/me'),
   listRides: (params={}) => request(`/rides?${new URLSearchParams(params)}`),
   getRide: (id) => request(`/rides/${id}`),
-  bookRide: (id, method) => request(`/rides/${id}/book`, { method: 'POST', body: { method } }),
+  bookRide: (id, method, seatCode) => request(`/rides/${id}/book`, { method: 'POST', body: seatCode? { method, seatCode } : { method } }),
   createRide: (payload) => request('/conductor/rides', { method: 'POST', body: payload }),
   addPassenger: (rideId, payload) => request(`/conductor/rides/${rideId}/passengers`, { method: 'POST', body: payload }),
   updateLocation: (rideId, payload) => request(`/conductor/rides/${rideId}/location`, { method: 'PATCH', body: payload }),

@@ -32,7 +32,7 @@ export default function UserDashboard() {
       {rides.map(r=> <li key={r._id} className="border p-3 rounded flex justify-between items-center">
         <div>
           <p className="font-semibold">{r.origin} → {r.destination}</p>
-          <p className="text-xs">Conductor: {r.conductor?.name}</p>
+          <p className="text-xs">Conductor: {r.conductor?.name} {r.type==='inter' ? '| Inter-City' : '| Intra-City'}</p>
         </div>
         <Link to={`/ride/${r._id}`} className="text-blue-600 underline text-sm">View</Link>
       </li>)}

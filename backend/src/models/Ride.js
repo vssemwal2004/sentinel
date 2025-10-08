@@ -14,6 +14,7 @@ const rideSchema = new mongoose.Schema({
     name: String,
     paid: { type: Boolean, default: false },
     method: { type: String, enum: ['online', 'cash'], default: 'cash' },
+    seatCode: String, // for inter-city rides only
     addedAt: { type: Date, default: Date.now }
   }],
   capacityCounter: { type: Number, default: 0 },
