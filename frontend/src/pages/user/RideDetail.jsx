@@ -9,6 +9,17 @@ export default function RideDetail(){
   const { id } = useParams();
   const [ride,setRide] = useState(null);
   const [method,setMethod] = useState('online');
+  const [seatCode,setSeatCode] = useState('');
+  function handleQrUpload(e){
+    const file = e.target.files?.[0];
+    if(!file) return;
+    // Placeholder: In future decode QR to text. For now just show filename w/o extension.
+    const base = file.name.replace(/\.[^.]+$/,'');
+    setSeatCode(base);
+  }
+  function startCameraScan(){
+    alert('Camera scan placeholder - integrate QR library (e.g., html5-qrcode)');
+  }
 
   useEffect(()=>{ load(); },[id]);
   useEffect(()=>{
@@ -24,7 +35,12 @@ export default function RideDetail(){
   }
 
   async function book(){
-    await api.bookRide(id, method);
+    if(ride.type === 'inter' && !seatCode){
+      alert('Please scan or enter the seat QR code');
+      return;
+    }
+    const body = { method, seatCode: ride.type==='inter'? seatCode: undefined };
+    await api.bookRide(id, body.method, body.seatCode);
     await load();
   }
 
@@ -34,18 +50,34 @@ export default function RideDetail(){
     <h1 className="text-xl font-bold">{ride.origin} → {ride.destination}</h1>
     <p>ETA: {ride.etaMinutes ? ride.etaMinutes + ' min' : '—'}</p>
   <p>People in bus (counter): {ride.capacityCounter}{ride.seatsTotal? ` / ${ride.seatsTotal}`:''}</p>
-    <div>
+    {ride.type==='inter' && <div>
       <h2 className="font-semibold">Passengers</h2>
       <ul className="text-sm list-disc ml-6">
-        {ride.passengers.map((p,i)=><li key={i}>{p.name || 'Guest'} {p.paid? '✅':''}</li>)}
+        {ride.passengers.map((p,i)=><li key={i}>{p.name || 'Guest'} {p.seatCode? `[${p.seatCode}]`:''} {p.paid? '✅':''}</li>)}
       </ul>
-    </div>
-    <div className="space-x-2">
-      <select className="border p-1" value={method} onChange={e=>setMethod(e.target.value)}>
-        <option value="online">Online</option>
-        <option value="cash">Cash</option>
-      </select>
-      <button onClick={book} className="bg-green-600 text-white px-3 py-1 rounded">Book</button>
-    </div>
+    </div>}
+  {ride.type === 'inter' && <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 items-end">
+        <div>
+          <label className="block text-xs font-medium mb-1">Seat Code (Scan QR or type)</label>
+          <input className="border p-1" placeholder="BUS101-Seat12" value={seatCode} onChange={e=>setSeatCode(e.target.value)} />
+        </div>
+        <div className="flex flex-col text-xs gap-1">
+          <label className="font-medium">QR Source</label>
+          <input type="file" accept="image/*" onChange={e=>handleQrUpload(e)} className="text-xs" />
+          <button type="button" onClick={()=>startCameraScan()} className="border px-2 py-1 rounded">Scan Camera</button>
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1">Payment</label>
+          <select className="border p-1" value={method} onChange={e=>setMethod(e.target.value)}>
+            <option value="online">Online</option>
+            <option value="cash">Cash</option>
+          </select>
+        </div>
+        <button onClick={book} className="bg-green-600 text-white h-8 px-3 rounded self-end">Book</button>
+      </div>
+      <p className="text-xs text-gray-500">Seat code required. Upload a QR image or scan with camera (placeholder). Actual QR decoding to be implemented.</p>
+    </div>}
+    {ride.type === 'intra' && <p className="text-xs text-gray-500">Intra-City rides: booking not required; display only ETA & live counter.</p>}
   </div>;
 }
