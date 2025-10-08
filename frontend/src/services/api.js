@@ -26,4 +26,9 @@ export const api = {
     return fetch(`${API_BASE}/admin/conductors/import`, { method: 'POST', body: form, credentials: 'include' }).then(r=>r.json());
   },
   listConductors: () => request('/admin/conductors')
+  ,importBuses: (file) => { const form = new FormData(); form.append('file', file); return fetch(`${API_BASE}/admin/buses/import`, { method:'POST', body: form, credentials:'include' }).then(r=>r.json()); }
+  ,listBuses: () => request('/admin/buses')
+  ,availableBuses: (rideType) => request(`/conductor/buses/available?${rideType?`rideType=${rideType}`:''}`)
+  ,createConductor: (payload) => request('/admin/conductors', { method: 'POST', body: payload })
+  ,createBus: (payload) => request('/admin/buses', { method: 'POST', body: payload })
 };

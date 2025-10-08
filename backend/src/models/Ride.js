@@ -5,6 +5,9 @@ const rideSchema = new mongoose.Schema({
   origin: { type: String, required: true },
   destination: { type: String, required: true },
   conductor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  bus: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus' },
+  busNumber: { type: String },
+  seatsTotal: { type: Number },
   active: { type: Boolean, default: true },
   passengers: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

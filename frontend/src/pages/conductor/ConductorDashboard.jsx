@@ -11,17 +11,25 @@ export default function ConductorDashboard(){
   const [newPassenger,setNewPassenger] = useState('');
   const [location,setLocation] = useState({ lat:'', lng:'', etaMinutes:'' });
   const [counter,setCounter] = useState('');
+  const [availableBuses,setAvailableBuses] = useState([]);
+  const [busId,setBusId] = useState('');
 
-  useEffect(()=>{ load(); },[]);
+  useEffect(()=>{ load(); },[form.type]);
 
   async function load(){
     const d = await api.listRides({});
     setRides(d.rides);
+    // fetch buses for current form.type
+    const b = await api.availableBuses(form.type);
+    setAvailableBuses(b.buses);
   }
 
   async function createRide(){
-    const d = await api.createRide(form);
+    if(!busId) { alert('Select a bus'); return; }
+    const payload = { ...form, busId };
+    const d = await api.createRide(payload);
     setForm({ type:'intra', origin:'', destination:'' });
+    setBusId('');
     await load();
     setSelected(d.ride._id);
   }
@@ -73,19 +81,24 @@ export default function ConductorDashboard(){
         </select>
         <input className="border p-1 w-full" placeholder="Origin" value={form.origin} onChange={e=>setForm(f=>({...f,origin:e.target.value}))} />
         <input className="border p-1 w-full" placeholder="Destination" value={form.destination} onChange={e=>setForm(f=>({...f,destination:e.target.value}))} />
+        <select className="border p-1 w-full" value={busId} onChange={e=>setBusId(e.target.value)}>
+          <option value="">Select Bus *</option>
+          {availableBuses.map(b=> <option key={b._id} value={b._id}>{b.number} - {b.seats} seats {b.type? `| ${b.type}`:''}</option>)}
+        </select>
         <button onClick={createRide} className="bg-blue-600 text-white px-3 py-1 rounded">Create</button>
       </div>
       <ul className="space-y-2 max-h-72 overflow-auto">
         {rides.map(r=> <li key={r._id} className={`border p-2 rounded ${selected===r._id?'bg-blue-50':''}`} onClick={()=>setSelected(r._id)}>
           <p className="font-semibold">{r.origin} → {r.destination}</p>
-          <p className="text-xs">{r.type} | Passengers: {r.passengers.length}</p>
+          <p className="text-xs">{r.type} | Passengers: {r.passengers.length} {r.seatsTotal? `/ ${r.seatsTotal}`:''} {r.busNumber? `| Bus ${r.busNumber}`:''}</p>
         </li>)}
       </ul>
     </div>
     <div>
       {current ? <div className="space-y-4">
         <h2 className="text-xl font-semibold">Ride Detail</h2>
-        <p>Route: {current.origin} → {current.destination}</p>
+  <p>Route: {current.origin} → {current.destination}</p>
+  {current.busNumber && <p>Bus: {current.busNumber} ({current.seatsTotal} seats)</p>}
         <p>ETA: {current.etaMinutes || '—'} min</p>
         <div className="border p-3 rounded space-y-2">
           <h3 className="font-semibold">Update Location & ETA</h3>

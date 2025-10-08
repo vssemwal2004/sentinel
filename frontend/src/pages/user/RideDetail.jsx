@@ -33,7 +33,7 @@ export default function RideDetail(){
   return <div className="p-4 space-y-4">
     <h1 className="text-xl font-bold">{ride.origin} → {ride.destination}</h1>
     <p>ETA: {ride.etaMinutes ? ride.etaMinutes + ' min' : '—'}</p>
-    <p>People in bus (counter): {ride.capacityCounter}</p>
+  <p>People in bus (counter): {ride.capacityCounter}{ride.seatsTotal? ` / ${ride.seatsTotal}`:''}</p>
     <div>
       <h2 className="font-semibold">Passengers</h2>
       <ul className="text-sm list-disc ml-6">
