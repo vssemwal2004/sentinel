@@ -3,6 +3,7 @@ import Ride from '../models/Ride.js';
 import Bus from '../models/Bus.js';
 import { authRequired } from '../utils/auth.js';
 import jwt from 'jsonwebtoken';
+import { generateSeatIds } from '../utils/seatLayout.js';
 
 const router = express.Router();
 
@@ -26,28 +27,36 @@ router.get('/:id', async (req,res,next) => {
   } catch (e) { next(e); }
 });
 
+// For intra rides still allow simple presence booking; for inter rides require seat selection
 router.post('/:id/book', authRequired, async (req,res,next) => {
   try {
     const ride = await Ride.findById(req.params.id);
     if(!ride) return res.status(404).json({ error: 'Ride not found'});
     const already = ride.passengers.find(p => String(p.user) === String(req.user._id));
+    if(ride.type === 'intra') return res.status(403).json({ error: 'Booking not available for intra-city rides'});
+    // Inter ride: require seatNumber and verificationToken
+    const { verificationToken, seatNumber, method='online' } = req.body;
     if(already) return res.status(400).json({ error: 'Already booked'});
-  if(ride.type === 'intra') return res.status(403).json({ error: 'Booking not available for intra-city rides'});
-    if(ride.type === 'inter') {
-      const { verificationToken } = req.body;
-      if(!verificationToken) return res.status(400).json({ error: 'QR verification required'});
-      try {
-        const payload = jwt.verify(verificationToken, process.env.JWT_SECRET || 'devsecret');
-        if(payload.kind !== 'qr' || String(payload.rideId) !== String(ride._id) || String(payload.sub) !== String(req.user._id)) {
-          return res.status(400).json({ error: 'Invalid verification token'});
-        }
-      } catch(e){
-        return res.status(400).json({ error: 'Invalid or expired verification token'});
+    if(!verificationToken) return res.status(400).json({ error: 'QR verification required'});
+    try {
+      const payload = jwt.verify(verificationToken, process.env.JWT_SECRET || 'devsecret');
+      if(payload.kind !== 'qr' || String(payload.rideId) !== String(ride._id) || String(payload.sub) !== String(req.user._id)) {
+        return res.status(400).json({ error: 'Invalid verification token'});
       }
+    } catch(e){
+      return res.status(400).json({ error: 'Invalid or expired verification token'});
     }
-    ride.passengers.push({ user: req.user._id, name: req.user.name, method: req.body.method || 'online', paid: req.body.method === 'online' });
+    if(!seatNumber) return res.status(400).json({ error: 'seatNumber required'});
+    // Generate seat list reference
+    const seats = generateSeatIds(ride.seatsTotal || 0);
+    if(!seats.includes(seatNumber)) return res.status(400).json({ error: 'Invalid seatNumber'});
+    const taken = (ride.seatAssignments || []).find(s => s.seatNumber === seatNumber);
+    if(taken) return res.status(400).json({ error: 'Seat already taken'});
+    ride.seatAssignments.push({ seatNumber, user: req.user._id, name: req.user.name, method, paid: method === 'online' });
+    // Mirror minimal passenger list for legacy counters (optional)
+    ride.passengers.push({ user: req.user._id, name: req.user.name, method, paid: method === 'online' });
     await ride.save();
-    req.app.get('io').to(`ride:${ride._id}`).emit('ride:update', { rideId: ride._id, passengers: ride.passengers });
+    req.app.get('io').to(`ride:${ride._id}`).emit('ride:update', { rideId: ride._id, passengers: ride.passengers, seatAssignments: ride.seatAssignments });
     res.json({ ride });
   } catch (e) { next(e); }
 });
@@ -92,6 +101,18 @@ router.post('/:id/verify-qr', authRequired, async (req,res,next) => {
     }
     const token = jwt.sign({ kind:'qr', rideId: ride._id, sub: req.user._id }, process.env.JWT_SECRET || 'devsecret', { expiresIn: '5m' });
     res.json({ verificationToken: token });
+  } catch(e){ next(e); }
+});
+
+// New: fetch seat map & occupancy for an inter-city ride
+router.get('/:id/seats', authRequired, async (req,res,next) => {
+  try {
+    const ride = await Ride.findById(req.params.id);
+    if(!ride) return res.status(404).json({ error: 'Ride not found'});
+    if(ride.type !== 'inter') return res.status(400).json({ error: 'No seats for intra ride'});
+    const seats = generateSeatIds(ride.seatsTotal || 0);
+    const assignments = (ride.seatAssignments || []).map(s => ({ seatNumber: s.seatNumber, user: s.user, name: s.name, paid: s.paid }));
+    res.json({ seats, assignments });
   } catch(e){ next(e); }
 });
 

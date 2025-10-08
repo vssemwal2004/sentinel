@@ -8,6 +8,16 @@ const rideSchema = new mongoose.Schema({
   bus: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus' },
   busNumber: { type: String },
   seatsTotal: { type: Number },
+  // Seat assignment structures (for inter-city rides with seat selection)
+  seatAssignments: [{
+    seatNumber: String, // e.g., '1A'
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    name: String,
+    paid: { type: Boolean, default: false },
+    method: { type: String, enum: ['online','cash'], default: 'online' },
+    bookedAt: { type: Date, default: Date.now }
+  }],
+  seatMapVersion: { type: Number, default: 1 },
   active: { type: Boolean, default: true },
   originCoords: { lat: Number, lng: Number },
   destinationCoords: { lat: Number, lng: Number },

@@ -19,6 +19,9 @@ export default function RideDetail(){
   const [qrRaw,setQrRaw] = useState('');
   const [otherUsers,setOtherUsers] = useState([]);
   const [showScanner,setShowScanner] = useState(false);
+  const [seats,setSeats] = useState([]);
+  const [seatAssignments,setSeatAssignments] = useState([]);
+  const [selectedSeat,setSelectedSeat] = useState(null);
   async function handleQrUpload(e){
     const file = e.target.files?.[0];
     if(!file) return;
@@ -93,6 +96,13 @@ export default function RideDetail(){
   async function load(fetchDetails=true){
     const d = await api.getRide(id);
     setRide(d.ride);
+    if(d.ride?.type === 'inter') {
+      try {
+        const seatData = await api.getRideSeats(id);
+        setSeats(seatData.seats);
+        setSeatAssignments(seatData.assignments);
+      } catch(err){ /* ignore until QR verified maybe */ }
+    }
   }
 
   async function book(){
@@ -100,9 +110,13 @@ export default function RideDetail(){
       alert('Scan the bus QR first');
       return;
     }
+    if(ride.type === 'inter' && !selectedSeat){
+      alert('Select a seat');
+      return;
+    }
     const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/rides/${id}/book`, {
       method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ method, verificationToken })
+      body: JSON.stringify({ method, verificationToken, seatNumber: selectedSeat })
     });
     const data = await res.json();
     if(!res.ok){ alert(data.error || 'Booking failed'); return; }
@@ -172,11 +186,43 @@ export default function RideDetail(){
             <option value="online">Online</option>
             <option value="cash">Cash</option>
           </select>
-          <button onClick={book} className="bg-green-600 text-white px-3 py-1 rounded mt-1">Confirm Booking</button>
+          {/* Seat selection grid */}
+          <div className="mt-2">
+            <p className="font-medium mb-1">Select Seat</p>
+            <SeatGrid seats={seats} assignments={seatAssignments} selectedSeat={selectedSeat} onSelect={setSelectedSeat} />
+          </div>
+          <button disabled={!selectedSeat} onClick={book} className="bg-green-600 disabled:opacity-50 text-white px-3 py-1 rounded mt-2">Confirm Booking</button>
         </div>}
       </div>
       {!qrValidated && <p className="text-xs text-gray-500">You must scan or verify the bus QR. Only after a successful match can payment proceed.</p>}
     </div>}
     {ride.type === 'intra' && <p className="text-xs text-gray-500">Intra-City rides: booking not required; display only ETA & live counter.</p>}
+  </div>;
+}
+
+function SeatGrid({ seats, assignments, selectedSeat, onSelect }){
+  if(!seats || seats.length===0) return <p className="text-xs text-gray-500">No seat data.</p>;
+  const taken = new Set(assignments.map(a=>a.seatNumber));
+  // Group into rows of 4
+  const rows = [];
+  for(let i=0;i<seats.length;i+=4) rows.push(seats.slice(i,i+4));
+  return <div className="inline-block border rounded p-2 bg-white">
+    <div className="flex flex-col gap-1">
+      {rows.map((row,ri)=> <div key={ri} className="flex gap-2 items-center">
+        {row.map(seat=>{
+          const isTaken = taken.has(seat);
+          const isSel = seat===selectedSeat;
+          return <button key={seat} type="button" disabled={isTaken}
+            onClick={()=>onSelect(seat)}
+            className={"w-10 h-10 text-[10px] rounded border flex flex-col items-center justify-center relative " +
+              (isTaken? 'bg-gray-200 text-gray-400 cursor-not-allowed':'hover:border-blue-500') +
+              (isSel? ' ring-2 ring-blue-600 border-blue-600':'') }>
+              <span>{seat}</span>
+              {isTaken && <span className="text-[8px]">Sold</span>}
+            </button>;
+        })}
+      </div>)}
+    </div>
+    {selectedSeat && <p className="mt-2 text-xs">Selected: <strong>{selectedSeat}</strong></p>}
   </div>;
 }

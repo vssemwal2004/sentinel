@@ -15,6 +15,7 @@ export const api = {
   me: () => request('/auth/me'),
   listRides: (params={}) => request(`/rides?${new URLSearchParams(params)}`),
   getRide: (id) => request(`/rides/${id}`),
+  getRideSeats: (id) => request(`/rides/${id}/seats`),
   bookRide: (id, method) => request(`/rides/${id}/book`, { method: 'POST', body: { method } }),
   verifyRideQr: (id, qr) => request(`/rides/${id}/verify-qr`, { method: 'POST', body: { qr } }),
   createRide: (payload) => request('/conductor/rides', { method: 'POST', body: payload }),

@@ -186,10 +186,13 @@ export default function ConductorDashboard(){
             <button onClick={updateCounter} className="bg-indigo-600 text-white px-3 rounded">Set Counter</button>
           </div>
           <ul className="text-sm space-y-1 max-h-40 overflow-auto">
-            {current.passengers.map((p,i)=><li key={i} className="flex justify-between">
-              <span>{p.name || 'Guest'} {p.paid?'✅':''}</span>
-              {!p.paid && <button onClick={()=>markPaid(i)} className="text-xs text-green-600 underline">Mark Paid</button>}
-            </li>)}
+            { (current.seatAssignments && current.seatAssignments.length>0 ? current.seatAssignments : current.passengers).map((p,i)=>{
+              const seatLabel = p.seatNumber ? `${p.seatNumber}: ` : '';
+              return <li key={i} className="flex justify-between">
+                <span>{seatLabel}{p.name || 'Guest'} {p.paid?'✅':''}</span>
+                {!p.paid && <button onClick={()=>markPaid(i)} className="text-xs text-green-600 underline">Mark Paid</button>}
+              </li>;
+            })}
           </ul>
           <div className="flex gap-2">
             <input className="border p-1 flex-1" placeholder="Add passenger name" value={newPassenger} onChange={e=>setNewPassenger(e.target.value)} />
