@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import jsQR from 'jsqr';
 import { useParams } from 'react-router-dom';
 import { api } from '../../services/api';
 import { io } from 'socket.io-client';
 import LiveRideMap from '../../components/Map/LiveRideMap.jsx';
+import QrCameraScanner from '../../components/QR/QrCameraScanner.jsx';
 
 let socket;
 
@@ -12,17 +14,58 @@ export default function RideDetail(){
   const [userLoc,setUserLoc] = useState(null);
   const [geoAllowed,setGeoAllowed] = useState(null);
   const [method,setMethod] = useState('online');
-  const [seatCode,setSeatCode] = useState('');
+  const [qrValidated,setQrValidated] = useState(false);
+  const [verificationToken,setVerificationToken] = useState(null);
+  const [qrRaw,setQrRaw] = useState('');
   const [otherUsers,setOtherUsers] = useState([]);
-  function handleQrUpload(e){
+  const [showScanner,setShowScanner] = useState(false);
+  async function handleQrUpload(e){
     const file = e.target.files?.[0];
     if(!file) return;
-    // Placeholder: In future decode QR to text. For now just show filename w/o extension.
-    const base = file.name.replace(/\.[^.]+$/,'');
-    setSeatCode(base);
+    // Decode QR from image
+    try {
+      const bitmap = await file.arrayBuffer();
+      const blobUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.src = blobUrl;
+      await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img,0,0);
+      const imageData = ctx.getImageData(0,0,canvas.width, canvas.height);
+      const code = jsQR(imageData.data, canvas.width, canvas.height);
+      URL.revokeObjectURL(blobUrl);
+      if(!code){ alert('No QR code detected'); return; }
+      const text = code.data.trim();
+      setQrRaw(text);
+      const v = await api.verifyRideQr(id, text);
+      setVerificationToken(v.verificationToken);
+      setQrValidated(true);
+    } catch(err){
+      console.error(err);
+      alert(err.message || 'QR decode/verify failed');
+      setQrValidated(false);
+      setVerificationToken(null);
+    }
   }
   function startCameraScan(){
-    alert('Camera scan placeholder - integrate QR library (e.g., html5-qrcode)');
+    setShowScanner(true);
+  }
+  function handleDecodedFromCamera(text){
+    (async()=>{
+      try{
+        setQrRaw(text);
+        const v = await api.verifyRideQr(id, text);
+        setVerificationToken(v.verificationToken);
+        setQrValidated(true);
+        setShowScanner(false);
+      }catch(err){
+        alert(err.message || 'Verification failed');
+        setQrValidated(false);
+        setVerificationToken(null);
+      }
+    })();
   }
 
   useEffect(()=>{ load(); },[id]);
@@ -53,12 +96,16 @@ export default function RideDetail(){
   }
 
   async function book(){
-    if(ride.type === 'inter' && !seatCode){
-      alert('Please scan or enter the seat QR code');
+    if(ride.type === 'inter' && !qrValidated){
+      alert('Scan the bus QR first');
       return;
     }
-    const body = { method, seatCode: ride.type==='inter'? seatCode: undefined };
-    await api.bookRide(id, body.method, body.seatCode);
+    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/rides/${id}/book`, {
+      method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ method, verificationToken })
+    });
+    const data = await res.json();
+    if(!res.ok){ alert(data.error || 'Booking failed'); return; }
     await load();
   }
 
@@ -95,30 +142,40 @@ export default function RideDetail(){
     {ride.type==='inter' && <div>
       <h2 className="font-semibold">Passengers</h2>
       <ul className="text-sm list-disc ml-6">
-        {ride.passengers.map((p,i)=><li key={i}>{p.name || 'Guest'} {p.seatCode? `[${p.seatCode}]`:''} {p.paid? '✅':''}</li>)}
+        {ride.passengers.map((p,i)=><li key={i}>{p.name || 'Guest'} {p.paid? '✅':''}</li>)}
       </ul>
     </div>}
-  {ride.type === 'inter' && <div className="space-y-2">
-      <div className="flex flex-wrap gap-2 items-end">
-        <div>
-          <label className="block text-xs font-medium mb-1">Seat Code (Scan QR or type)</label>
-          <input className="border p-1" placeholder="BUS101-Seat12" value={seatCode} onChange={e=>setSeatCode(e.target.value)} />
-        </div>
-        <div className="flex flex-col text-xs gap-1">
-          <label className="font-medium">QR Source</label>
+    {ride.type === 'inter' && <div className="space-y-3">
+      <div className="flex flex-wrap gap-4 items-start">
+        <div className="flex flex-col text-xs gap-1 min-w-[200px]">
+          <label className="font-medium">Scan / Upload Bus QR</label>
           <input type="file" accept="image/*" onChange={e=>handleQrUpload(e)} className="text-xs" />
-          <button type="button" onClick={()=>startCameraScan()} className="border px-2 py-1 rounded">Scan Camera</button>
+          <input className="border p-1 text-xs" placeholder="Or paste QR text" value={qrRaw} onChange={e=>setQrRaw(e.target.value)} />
+          <div className="flex gap-2">
+            <button type="button" onClick={async()=>{ if(!qrRaw) return; try { const v= await api.verifyRideQr(id, qrRaw); setVerificationToken(v.verificationToken); setQrValidated(true); setMethod('online'); } catch(err){ alert(err.message); setQrValidated(false); setVerificationToken(null);} }} className="border px-2 py-1 rounded">Verify Text</button>
+            <button type="button" onClick={()=>startCameraScan()} className="border px-2 py-1 rounded">Scan Cam</button>
+          </div>
+          {qrValidated ? <span className="text-green-600 text-xs">QR Verified ✔ Payment Enabled</span> : <span className="text-gray-500 text-xs">Verify QR to enable payment</span>}
         </div>
-        <div>
-          <label className="block text-xs font-medium mb-1">Payment</label>
-          <select className="border p-1" value={method} onChange={e=>setMethod(e.target.value)}>
+        {showScanner && <div className="p-2 border rounded bg-white shadow relative">
+          <QrCameraScanner
+            onDecode={(t)=>handleDecodedFromCamera(t)}
+            onError={(e)=>console.warn('Scanner error', e)}
+            onClose={()=>setShowScanner(false)}
+            facingMode="environment"
+            scanIntervalMs={400}
+          />
+        </div>}
+        {qrValidated && <div className="flex flex-col gap-1 text-xs">
+          <label className="font-medium">Payment Method</label>
+          <select className="border p-1 text-xs" value={method} onChange={e=>setMethod(e.target.value)}>
             <option value="online">Online</option>
             <option value="cash">Cash</option>
           </select>
-        </div>
-        <button onClick={book} className="bg-green-600 text-white h-8 px-3 rounded self-end">Book</button>
+          <button onClick={book} className="bg-green-600 text-white px-3 py-1 rounded mt-1">Confirm Booking</button>
+        </div>}
       </div>
-      <p className="text-xs text-gray-500">Seat code required. Upload a QR image or scan with camera (placeholder). Actual QR decoding to be implemented.</p>
+      {!qrValidated && <p className="text-xs text-gray-500">You must scan or verify the bus QR. Only after a successful match can payment proceed.</p>}
     </div>}
     {ride.type === 'intra' && <p className="text-xs text-gray-500">Intra-City rides: booking not required; display only ETA & live counter.</p>}
   </div>;

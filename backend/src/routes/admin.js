@@ -80,8 +80,7 @@ router.post('/buses/import', authRequired, role('admin'), upload.single('file'),
       const existing = await Bus.findOne({ number });
       if(existing) { skipped.push(number); continue; }
       const seatsNum = parseInt(seatsRaw);
-      const seatEntries = Array.from({ length: seatsNum }, (_,i)=> ({ seatNumber: i+1, code: `${number}-Seat${i+1}` }));
-      await Bus.create({ number, name, seats: seatsNum, type, routeName, seatsQr: seatEntries });
+      await Bus.create({ number, name, seats: seatsNum, type, routeName });
       imported++;
     }
     res.json({ imported, skipped });
@@ -90,7 +89,7 @@ router.post('/buses/import', authRequired, role('admin'), upload.single('file'),
 
 router.get('/buses', authRequired, role('admin'), async (req,res,next) => {
   try {
-  const buses = await Bus.find({}, 'number name seats type routeName activeRide seatsQr');
+    const buses = await Bus.find({}, 'number name seats type routeName activeRide qrCodeValue');
     res.json({ buses });
   } catch (e) { next(e); }
 });
@@ -103,33 +102,22 @@ router.post('/buses', authRequired, role('admin'), async (req,res,next) => {
     const existing = await Bus.findOne({ number });
     if(existing) return res.status(409).json({ error: 'Bus number exists' });
     const seatsNum = parseInt(seats);
-    const seatEntries = Array.from({ length: seatsNum }, (_,i)=> ({ seatNumber: i+1, code: `${number}-Seat${i+1}` }));
-    const bus = await Bus.create({ number, name, seats: seatsNum, type, routeName, seatsQr: seatEntries });
+    const bus = await Bus.create({ number, name, seats: seatsNum, type, routeName });
     res.json({ bus });
   } catch (e) { next(e); }
 });
 
-// Download all seat QR codes as zip (regenerate on the fly) for all buses or a single bus if busId provided
+// Download single bus QR (PNG). busId required now that only one QR per bus exists.
 router.get('/buses/qr/download', authRequired, role('admin'), async (req,res,next) => {
   try {
     const { busId } = req.query;
-    const query = busId ? { _id: busId } : {};
-    const buses = await Bus.find(query);
-    if(!buses.length) return res.status(404).json({ error: 'No buses found'});
-    res.setHeader('Content-Type','application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename="bus-seat-qrcodes.zip"');
-    const archive = archiver('zip', { zlib: { level: 9 }});
-    archive.on('error', err => { throw err; });
-    archive.pipe(res);
-    for(const bus of buses){
-      const folder = `bus-${bus.number}`;
-      for(const seat of bus.seatsQr){
-        const text = seat.code;
-        const pngBuffer = await QRCode.toBuffer(text, { type: 'png', margin: 1, scale: 6 });
-        archive.append(pngBuffer, { name: `${folder}/${text}.png` });
-      }
-    }
-    await archive.finalize();
+    if(!busId) return res.status(400).json({ error: 'busId required'});
+    const bus = await Bus.findById(busId);
+    if(!bus) return res.status(404).json({ error: 'Bus not found'});
+    const pngBuffer = await QRCode.toBuffer(bus.qrCodeValue || `BUSQR:${bus.number}`, { type: 'png', margin: 1, scale: 8 });
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `attachment; filename="bus-${bus.number}-qr.png"`);
+    res.end(pngBuffer);
   } catch (e) { next(e); }
 });
 

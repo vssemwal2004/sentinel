@@ -7,12 +7,18 @@ const busSchema = new mongoose.Schema({
   type: { type: String, enum: ['Intra-City','Inter-City'], required: false },
   routeName: { type: String },
   activeRide: { type: mongoose.Schema.Types.ObjectId, ref: 'Ride' },
-  seatsQr: [{
-    seatNumber: Number,
-    code: String, // e.g., BUS101-Seat1
-    // we can dynamically generate PNG on download; store base64 optionally later
-  }],
+  qrCodeValue: { type: String, index: true }, // single QR per bus for booking unlock
   createdAt: { type: Date, default: Date.now }
+});
+
+// Ensure qrCodeValue exists for legacy documents
+busSchema.pre('save', function(next){
+  if(!this.qrCodeValue){
+    // random stable token embedded with bus number
+    const rand = Math.random().toString(36).slice(2,10).toUpperCase();
+    this.qrCodeValue = `BUSQR:${this.number}:${rand}`;
+  }
+  next();
 });
 
 export default mongoose.model('Bus', busSchema);

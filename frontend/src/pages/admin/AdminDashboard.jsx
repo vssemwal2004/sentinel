@@ -11,7 +11,7 @@ export default function AdminDashboard(){
   const [newConductor,setNewConductor] = useState({ name:'', email:'', phone:'', password:'' });
   const [newBus,setNewBus] = useState({ number:'', name:'', seats:'', type:'Intra-City', routeName:'' });
   const [creating,setCreating] = useState(false);
-  const [downloading,setDownloading] = useState(false);
+  // removed bulk download state since single QR per bus
   const [downloadingBus,setDownloadingBus] = useState(null);
 
   async function load(){
@@ -47,20 +47,7 @@ export default function AdminDashboard(){
     try { await api.createBus(newBus); setNewBus({ number:'', name:'', seats:'', type:'Intra-City', routeName:'' }); await load(); } finally { setCreating(false); }
   }
 
-  async function downloadAllQrs(){
-    setDownloading(true);
-    try {
-      const url = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api') + '/admin/buses/qr/download';
-      const res = await fetch(url, { credentials: 'include' });
-      if(!res.ok) throw new Error('Failed');
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'bus-seat-qrcodes.zip';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } finally { setDownloading(false); }
-  }
+  // bulk download removed
 
   async function downloadBusQrs(bus){
     setDownloadingBus(bus._id);
@@ -72,7 +59,7 @@ export default function AdminDashboard(){
       const blob = await res.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `bus-${bus.number}-qrcodes.zip`;
+  a.download = `bus-${bus.number}-qr.png`;
       a.click();
       URL.revokeObjectURL(a.href);
     } finally { setDownloadingBus(null); }
@@ -134,7 +121,6 @@ export default function AdminDashboard(){
     </div>
     <div>
       <h2 className="font-semibold mb-2">Buses</h2>
-      <button onClick={downloadAllQrs} disabled={downloading} className="mb-2 bg-purple-600 text-white px-3 py-1 rounded disabled:opacity-50">{downloading?'Preparing...':'Download All Seat QR Codes'}</button>
       <ul className="space-y-1 text-sm">
         {buses.map(b=> <li key={b._id} className="border p-2 rounded space-y-1">
           <div className="flex justify-between">
@@ -145,10 +131,10 @@ export default function AdminDashboard(){
             <span>{b.seats} seats</span>
             {b.type && <span>{b.type}</span>}
             {b.routeName && <span>Route: {b.routeName}</span>}
-            {b.seatsQr && <span>QRs: {b.seatsQr.length}</span>}
+            {b.qrCodeValue && <span>QR Ready</span>}
           </div>
           <button onClick={()=>downloadBusQrs(b)} disabled={downloadingBus===b._id} className="text-xs bg-purple-500 text-white px-2 py-1 rounded disabled:opacity-50">
-            {downloadingBus===b._id? 'Preparing...' : 'Download QR ZIP'}
+            {downloadingBus===b._id? 'Preparing...' : 'Download QR PNG'}
           </button>
         </li>)}
       </ul>

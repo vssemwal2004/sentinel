@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/auth/Login.jsx';
 import Register from './pages/auth/Register.jsx';
 import UserDashboard from './pages/user/UserDashboard.jsx';
+import DemoRoute from './pages/user/DemoRoute.jsx';
 import ConductorDashboard from './pages/conductor/ConductorDashboard.jsx';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import RideDetail from './pages/user/RideDetail.jsx';
@@ -26,6 +27,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/user" element={<Protected roles={['user', 'admin', 'conductor']}><UserDashboard /></Protected>} />
+          <Route path="/demo" element={<DemoRoute />} />
           <Route path="/ride/:id" element={<Protected roles={['user', 'admin', 'conductor']}><RideDetail /></Protected>} />
           <Route path="/conductor" element={<Protected roles={['conductor', 'admin']}><ConductorDashboard /></Protected>} />
           <Route path="/admin" element={<Protected roles={['admin']}><AdminDashboard /></Protected>} />
