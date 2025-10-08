@@ -21,12 +21,44 @@ const io = new Server(server, { cors: { origin: process.env.FRONTEND_ORIGIN?.spl
 
 io.use(verifySocketAuth);
 
+// In-memory map of user locations per ride: { [rideId]: { [userKey]: { lat,lng,name,userId,updatedAt } } }
+const rideUserLocations = {};
+
 io.on('connection', (socket) => {
+  // userKey: prefer authenticated user id else socket id
+  const userKey = socket.user? String(socket.user._id) : socket.id;
+  const displayName = socket.user?.name || 'Guest';
   console.log('Socket connected', socket.user?.role, socket.user?.id);
+
   socket.on('joinRide', (rideId) => {
     socket.join(`ride:${rideId}`);
+    // On join send current user locations for that ride if any
+    if(rideUserLocations[rideId]) {
+      socket.emit('ride:userLocations', { rideId, users: Object.values(rideUserLocations[rideId]) });
+    }
   });
-  socket.on('leaveRide', (rideId) => socket.leave(`ride:${rideId}`));
+  socket.on('leaveRide', (rideId) => {
+    socket.leave(`ride:${rideId}`);
+    if(rideUserLocations[rideId]){
+      delete rideUserLocations[rideId][userKey];
+      io.to(`ride:${rideId}`).emit('ride:userLocations', { rideId, users: Object.values(rideUserLocations[rideId]) });
+    }
+  });
+  socket.on('user:location', ({ rideId, lat, lng }) => {
+    if(!rideId || typeof lat !== 'number' || typeof lng !== 'number') return;
+    if(!rideUserLocations[rideId]) rideUserLocations[rideId] = {};
+    rideUserLocations[rideId][userKey] = { userId: socket.user? String(socket.user._id) : null, name: displayName, lat, lng, updatedAt: Date.now() };
+    io.to(`ride:${rideId}`).emit('ride:userLocations', { rideId, users: Object.values(rideUserLocations[rideId]) });
+  });
+  socket.on('disconnect', () => {
+    // Remove user from all rides
+    for(const rideId of Object.keys(rideUserLocations)){
+      if(rideUserLocations[rideId][userKey]){
+        delete rideUserLocations[rideId][userKey];
+        io.to(`ride:${rideId}`).emit('ride:userLocations', { rideId, users: Object.values(rideUserLocations[rideId]) });
+      }
+    }
+  });
 });
 
 app.set('io', io);

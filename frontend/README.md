@@ -2,6 +2,15 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Added Features (Project Specific)
+
+- Live conductor GPS tracking (auto push from conductor dashboard).
+- Leaflet map displaying origin, destination and moving bus.
+- User geolocation (optional). If granted, dashboard and ride detail compute on-the-fly ETA from bus to user using haversine distance and heuristic speeds (30 km/h intra, 55 km/h inter).
+- Real-time ETA to destination still provided by backend; ETA to user is computed client-side and not stored.
+
+If a user denies geolocation permission, only the destination ETA is shown.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh

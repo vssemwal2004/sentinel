@@ -9,6 +9,8 @@ const rideSchema = new mongoose.Schema({
   busNumber: { type: String },
   seatsTotal: { type: Number },
   active: { type: Boolean, default: true },
+  originCoords: { lat: Number, lng: Number },
+  destinationCoords: { lat: Number, lng: Number },
   passengers: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     name: String,

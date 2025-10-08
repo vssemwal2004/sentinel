@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post('/rides', authRequired, role(['conductor','admin']), async (req,res,next) => {
   try {
-    const { type, origin, destination, busId } = req.body;
+    const { type, origin, destination, busId, originLat, originLng, destinationLat, destinationLng } = req.body;
     if(!type || !origin || !destination || !busId) return res.status(400).json({ error: 'Missing fields (type, origin, destination, busId required)' });
     let bus = null;
     bus = await Bus.findById(busId);
@@ -15,7 +15,7 @@ router.post('/rides', authRequired, role(['conductor','admin']), async (req,res,
     if(bus.activeRide) return res.status(400).json({ error: 'Bus already assigned to a ride'});
     const expectedBusType = type === 'intra' ? 'Intra-City' : 'Inter-City';
     if(bus.type && bus.type !== expectedBusType) return res.status(400).json({ error: `Bus type mismatch. Expected ${expectedBusType}` });
-    const ride = await Ride.create({ type, origin, destination, conductor: req.user._id, bus: bus?._id, busNumber: bus?.number, seatsTotal: bus?.seats });
+  const ride = await Ride.create({ type, origin, destination, conductor: req.user._id, bus: bus?._id, busNumber: bus?.number, seatsTotal: bus?.seats, originCoords: originLat && originLng ? { lat: originLat, lng: originLng } : undefined, destinationCoords: destinationLat && destinationLng ? { lat: destinationLat, lng: destinationLng } : undefined });
     if(bus){
       bus.activeRide = ride._id;
       await bus.save();
@@ -37,6 +37,16 @@ router.post('/rides/:id/passengers', authRequired, role(['conductor','admin']), 
   } catch (e) { next(e); }
 });
 
+function haversine(lat1,lng1,lat2,lng2){
+  function toRad(d){ return d*Math.PI/180; }
+  const R = 6371; // km
+  const dLat = toRad(lat2-lat1);
+  const dLng = toRad(lng2-lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R*c; // km
+}
+
 router.patch('/rides/:id/location', authRequired, role(['conductor','admin']), async (req,res,next) => {
   try {
     const { lat, lng, etaMinutes } = req.body;
@@ -44,7 +54,15 @@ router.patch('/rides/:id/location', authRequired, role(['conductor','admin']), a
     if(!ride) return res.status(404).json({ error: 'Ride not found'});
     if(String(ride.conductor) !== String(req.user._id) && req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden'});
     ride.busLocation = { lat, lng, updatedAt: new Date() };
-    if(typeof etaMinutes === 'number') ride.etaMinutes = etaMinutes;
+    if(typeof etaMinutes === 'number') {
+      ride.etaMinutes = etaMinutes;
+    } else if(ride.destinationCoords?.lat && ride.destinationCoords?.lng) {
+      // approximate ETA based on distance remaining and assumed avg speed (e.g., 30 km/h intra, 55 km/h inter)
+      const distKm = haversine(lat, lng, ride.destinationCoords.lat, ride.destinationCoords.lng);
+      const avgSpeed = ride.type === 'intra' ? 30 : 55; // km/h heuristics
+      const minutes = Math.round((distKm / avgSpeed) * 60);
+      ride.etaMinutes = minutes < 0 ? 0 : minutes;
+    }
     await ride.save();
     req.app.get('io').to(`ride:${ride._id}`).emit('ride:update', { rideId: ride._id, busLocation: ride.busLocation, etaMinutes: ride.etaMinutes });
     res.json({ ok: true });
