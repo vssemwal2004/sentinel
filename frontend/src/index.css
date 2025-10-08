@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -65,4 +69,126 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* Moved from app.jsx inline styles */
+@keyframes float-slow {
+  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33% { transform: translate(30px, -30px) scale(1.1) rotate(120deg); }
+  66% { transform: translate(-20px, 20px) scale(0.9) rotate(240deg); }
+}
+
+@keyframes float-medium {
+  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33% { transform: translate(-40px, 40px) scale(1.15) rotate(120deg); }
+  66% { transform: translate(40px, -20px) scale(0.95) rotate(240deg); }
+}
+
+@keyframes float-fast {
+  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33% { transform: translate(50px, -50px) scale(1.2) rotate(180deg); }
+  66% { transform: translate(-30px, 30px) scale(0.8) rotate(360deg); }
+}
+
+@keyframes float-random {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1) rotate(0deg); 
+    opacity: 0.7;
+  }
+  25% { 
+    transform: translate(20px, -20px) scale(0.8) rotate(90deg); 
+    opacity: 0.4;
+  }
+  50% { 
+    transform: translate(-20px, 20px) scale(1.1) rotate(180deg); 
+    opacity: 0.9;
+  }
+  75% { 
+    transform: translate(20px, 20px) scale(0.9) rotate(270deg); 
+    opacity: 0.6;
+  }
+}
+
+@keyframes float-particle {
+  0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.3; }
+  25% { transform: translateY(-20px) translateX(10px) scale(1.2); opacity: 0.7; }
+  50% { transform: translateY(-40px) translateX(-5px) scale(0.8); opacity: 0.4; }
+  75% { transform: translateY(-20px) translateX(-10px) scale(1.1); opacity: 0.8; }
+}
+
+@keyframes bus-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-8px) rotate(-1deg); }
+  50% { transform: translateY(-12px) rotate(1deg); }
+  75% { transform: translateY(-6px) rotate(-0.5deg); }
+}
+
+@keyframes bus-drive {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(15px); }
+}
+
+@keyframes wheel-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes headlight-pulse {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.8; filter: brightness(1.5); }
+}
+
+@keyframes window-gleam {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; filter: brightness(1.2); }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.15; }
+}
+
+.animate-float-slow {
+  animation: float-slow 25s ease-in-out infinite;
+}
+
+.animate-float-medium {
+  animation: float-medium 20s ease-in-out infinite;
+}
+
+.animate-float-fast {
+  animation: float-fast 15s ease-in-out infinite;
+}
+
+.animate-float-random {
+  animation: float-random 20s ease-in-out infinite;
+}
+
+.animate-float-particle {
+  animation: float-particle 15s ease-in-out infinite;
+}
+
+.animate-bus-bounce {
+  animation: bus-bounce 3s ease-in-out infinite;
+}
+
+.animate-bus-drive {
+  animation: bus-drive 4s ease-in-out infinite;
+}
+
+.animate-wheel-rotate {
+  animation: wheel-rotate 2s linear infinite;
+  transform-origin: center;
+}
+
+.animate-headlight-pulse {
+  animation: headlight-pulse 2s ease-in-out infinite;
+}
+
+.animate-window-gleam {
+  animation: window-gleam 3s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
 }
