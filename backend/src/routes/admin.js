@@ -4,6 +4,9 @@ import { parse } from 'csv-parse';
 import bcrypt from 'bcrypt';
 import User from '../models/User.js';
 import Bus from '../models/Bus.js';
+import QRCode from 'qrcode';
+import archiver from 'archiver';
+import stream from 'stream';
 import ConductorImport from '../models/ConductorImport.js';
 import { authRequired, role } from '../utils/auth.js';
 import { v4 as uuid } from 'uuid';
@@ -76,7 +79,9 @@ router.post('/buses/import', authRequired, role('admin'), upload.single('file'),
       if(!number || !seatsRaw) { skipped.push(number); continue; }
       const existing = await Bus.findOne({ number });
       if(existing) { skipped.push(number); continue; }
-      await Bus.create({ number, name, seats: parseInt(seatsRaw), type, routeName });
+      const seatsNum = parseInt(seatsRaw);
+      const seatEntries = Array.from({ length: seatsNum }, (_,i)=> ({ seatNumber: i+1, code: `${number}-Seat${i+1}` }));
+      await Bus.create({ number, name, seats: seatsNum, type, routeName, seatsQr: seatEntries });
       imported++;
     }
     res.json({ imported, skipped });
@@ -85,7 +90,7 @@ router.post('/buses/import', authRequired, role('admin'), upload.single('file'),
 
 router.get('/buses', authRequired, role('admin'), async (req,res,next) => {
   try {
-    const buses = await Bus.find({}, 'number name seats type routeName activeRide');
+  const buses = await Bus.find({}, 'number name seats type routeName activeRide seatsQr');
     res.json({ buses });
   } catch (e) { next(e); }
 });
@@ -97,8 +102,34 @@ router.post('/buses', authRequired, role('admin'), async (req,res,next) => {
     if(!number || !seats) return res.status(400).json({ error: 'number and seats required' });
     const existing = await Bus.findOne({ number });
     if(existing) return res.status(409).json({ error: 'Bus number exists' });
-    const bus = await Bus.create({ number, name, seats: parseInt(seats), type, routeName });
+    const seatsNum = parseInt(seats);
+    const seatEntries = Array.from({ length: seatsNum }, (_,i)=> ({ seatNumber: i+1, code: `${number}-Seat${i+1}` }));
+    const bus = await Bus.create({ number, name, seats: seatsNum, type, routeName, seatsQr: seatEntries });
     res.json({ bus });
+  } catch (e) { next(e); }
+});
+
+// Download all seat QR codes as zip (regenerate on the fly) for all buses or a single bus if busId provided
+router.get('/buses/qr/download', authRequired, role('admin'), async (req,res,next) => {
+  try {
+    const { busId } = req.query;
+    const query = busId ? { _id: busId } : {};
+    const buses = await Bus.find(query);
+    if(!buses.length) return res.status(404).json({ error: 'No buses found'});
+    res.setHeader('Content-Type','application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="bus-seat-qrcodes.zip"');
+    const archive = archiver('zip', { zlib: { level: 9 }});
+    archive.on('error', err => { throw err; });
+    archive.pipe(res);
+    for(const bus of buses){
+      const folder = `bus-${bus.number}`;
+      for(const seat of bus.seatsQr){
+        const text = seat.code;
+        const pngBuffer = await QRCode.toBuffer(text, { type: 'png', margin: 1, scale: 6 });
+        archive.append(pngBuffer, { name: `${folder}/${text}.png` });
+      }
+    }
+    await archive.finalize();
   } catch (e) { next(e); }
 });
 
