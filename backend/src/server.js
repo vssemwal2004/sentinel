@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import rideRoutes from './routes/rides.js';
 import conductorRoutes from './routes/conductor.js';
+import trafficRoutes from './routes/traffic.js';
 import { verifySocketAuth } from './utils/socketAuth.js';
 import { ensureAdmin } from './initAdmin.js';
 
@@ -59,6 +60,30 @@ io.on('connection', (socket) => {
       }
     }
   });
+
+  // --- Chat channels ---
+  socket.on('chat:join', (room) => {
+    if(typeof room !== 'string' || !room) return;
+    socket.join(`chat:${room}`);
+  });
+  socket.on('chat:leave', (room) => {
+    if(typeof room !== 'string' || !room) return;
+    socket.leave(`chat:${room}`);
+  });
+  socket.on('chat:message', (payload) => {
+    try {
+      const { room, text } = payload || {};
+      if(typeof room !== 'string' || !room) return;
+      if(typeof text !== 'string' || !text.trim()) return;
+      const msg = {
+        room,
+        text: text.trim(),
+        ts: Date.now(),
+        user: socket.user ? { id: String(socket.user._id), name: socket.user.name, role: socket.user.role } : { id: null, name: 'Guest' }
+      };
+      io.to(`chat:${room}`).emit('chat:message', msg);
+    } catch(e){ /* ignore */ }
+  });
 });
 
 app.set('io', io);
@@ -73,6 +98,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/rides', rideRoutes);
 app.use('/api/conductor', conductorRoutes);
+app.use('/api/traffic', trafficRoutes);
 
 app.use((err, req, res, next) => { // eslint-disable-line
   console.error(err);
@@ -85,6 +111,34 @@ async function start() {
   await ensureAdmin();
   const port = process.env.PORT || 4000;
   server.listen(port, () => console.log('API listening on', port));
+  // Optional traffic auto-simulation (demo). Set TRAFFIC_SIM_INTERVAL_MS env (e.g., 30000)
+  const intervalMs = parseInt(process.env.TRAFFIC_SIM_INTERVAL_MS || '0');
+  if(intervalMs > 0){
+    console.log('Traffic simulation interval enabled every', intervalMs, 'ms');
+    const simulate = async ()=>{
+      try {
+        // Reuse the route logic by importing model directly
+        const mod = await import('./models/TrafficSignal.js');
+        const TrafficSignalReading = mod.default;
+        const signals = [
+          { signalId: 's1', name: 'Sector 62 Junction', location: { lat: 28.6203, lng: 77.3811 } },
+          { signalId: 's2', name: 'Central Mall Circle', location: { lat: 28.6215, lng: 77.385 } },
+          { signalId: 's3', name: 'Tech Park Gate', location: { lat: 28.6189, lng: 77.379 } }
+        ];
+        function computeLevel(density){ if(density < 20) return 'Smooth'; if(density < 50) return 'Moderate'; return 'Heavy'; }
+        const created=[];
+        for(const meta of signals){
+          const entryCount = Math.floor(50 + Math.random()*100);
+          const exitCount = Math.floor(40 + Math.random()*90);
+          const density = entryCount - exitCount;
+          const level = computeLevel(density);
+            created.push(await TrafficSignalReading.create({ ...meta, entryCount, exitCount, density, level, timestamp: new Date() }));
+        }
+        io.emit('traffic:update', { signals: created.map(c=>({ signalId: c.signalId, name: c.name, location: c.location, entryCount: c.entryCount, exitCount: c.exitCount, density: c.density, level: c.level, timestamp: c.timestamp })) });
+      } catch(e){ console.error('Traffic auto-sim error', e); }
+    };
+    setInterval(simulate, intervalMs);
+  }
 }
 
 start();

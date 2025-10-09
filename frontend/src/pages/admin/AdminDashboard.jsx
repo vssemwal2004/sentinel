@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import TrafficDashboard from './TrafficDashboard.jsx';
 
 export default function AdminDashboard(){
   const [conductors, setConductors] = useState([]);
@@ -123,6 +124,15 @@ export default function AdminDashboard(){
           >
             <span className="text-xl">📁</span>
             {sidebarOpen && <span className="font-medium">Bulk Import</span>}
+          </button>
+          <button
+            onClick={() => setActiveTab('traffic')}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+              activeTab === 'traffic' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+            }`}
+          >
+            <span className="text-xl">🛰️</span>
+            {sidebarOpen && <span className="font-medium">Traffic Engine</span>}
           </button>
         </nav>
       </div>
@@ -512,8 +522,23 @@ export default function AdminDashboard(){
               </div>
             </div>
           )}
+          {activeTab === 'traffic' && (
+            <div className="space-y-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
+                <iframe title="Traffic Dashboard" src="/admin-traffic" className="w-full h-[1200px] hidden" />
+              </div>
+              {/* Inline import of TrafficDashboard to avoid routing changes */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-0 overflow-hidden">
+                <TrafficDashboardWrapper />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+function TrafficDashboardWrapper(){
+  return <div className="p-0"><TrafficDashboard /></div>;
 }
