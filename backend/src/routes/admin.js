@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { parse } from 'csv-parse';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Bus from '../models/Bus.js';
 import QRCode from 'qrcode';

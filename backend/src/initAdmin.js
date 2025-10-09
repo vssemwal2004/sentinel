@@ -1,5 +1,5 @@
 import User from './models/User.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 export async function ensureAdmin() {
   const email = process.env.ADMIN_EMAIL;
