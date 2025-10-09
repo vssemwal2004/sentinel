@@ -20,10 +20,16 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*', credentials: true } });
 
+// ====== Middleware (must come first!) ======
+app.use(cors({ origin: '*', credentials: true }));
+app.use(cookieParser());
+app.use(express.json());
+app.use(morgan('dev'));
+
+// ====== Socket.IO setup ======
 io.use(verifySocketAuth);
 
-// In-memory map of user locations per ride
-const rideUserLocations = {};
+const rideUserLocations = {}; // in-memory map of user locations
 
 io.on('connection', (socket) => {
   const userKey = socket.user ? String(socket.user._id) : socket.id;
@@ -36,6 +42,7 @@ io.on('connection', (socket) => {
       socket.emit('ride:userLocations', { rideId, users: Object.values(rideUserLocations[rideId]) });
     }
   });
+
   socket.on('leaveRide', (rideId) => {
     socket.leave(`ride:${rideId}`);
     if (rideUserLocations[rideId]) {
@@ -43,12 +50,14 @@ io.on('connection', (socket) => {
       io.to(`ride:${rideId}`).emit('ride:userLocations', { rideId, users: Object.values(rideUserLocations[rideId]) });
     }
   });
+
   socket.on('user:location', ({ rideId, lat, lng }) => {
     if (!rideId || typeof lat !== 'number' || typeof lng !== 'number') return;
     if (!rideUserLocations[rideId]) rideUserLocations[rideId] = {};
     rideUserLocations[rideId][userKey] = { userId: socket.user ? String(socket.user._id) : null, name: displayName, lat, lng, updatedAt: Date.now() };
     io.to(`ride:${rideId}`).emit('ride:userLocations', { rideId, users: Object.values(rideUserLocations[rideId]) });
   });
+
   socket.on('disconnect', () => {
     for (const rideId of Object.keys(rideUserLocations)) {
       if (rideUserLocations[rideId][userKey]) {
@@ -62,10 +71,12 @@ io.on('connection', (socket) => {
     if (typeof room !== 'string' || !room) return;
     socket.join(`chat:${room}`);
   });
+
   socket.on('chat:leave', (room) => {
     if (typeof room !== 'string' || !room) return;
     socket.leave(`chat:${room}`);
   });
+
   socket.on('chat:message', (payload) => {
     try {
       const { room, text } = payload || {};
@@ -78,11 +89,15 @@ io.on('connection', (socket) => {
         user: socket.user ? { id: String(socket.user._id), name: socket.user.name, role: socket.user.role } : { id: null, name: 'Guest' }
       };
       io.to(`chat:${room}`).emit('chat:message', msg);
-    } catch (e) { console.error('Chat error:', e); }
+    } catch (e) {
+      console.error('Chat error:', e);
+    }
   });
 });
 
 app.set('io', io);
+
+// ====== IoT route ======
 app.post('/api/iot/update', (req, res) => {
   console.log(`Incoming IoT request from IP: ${req.ip}, Body: ${JSON.stringify(req.body)}`);
   const { rideId, count } = req.body;
@@ -95,33 +110,32 @@ app.post('/api/iot/update', (req, res) => {
   res.json({ ok: true });
 });
 
-app.use(cors({ origin: '*', credentials: true }));
-app.use(cookieParser());
-app.use(express.json());
-app.use(morgan('dev'));
-
+// ====== Other routes ======
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }));
-
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/rides', rideRoutes);
 app.use('/api/conductor', conductorRoutes);
 app.use('/api/traffic', trafficRoutes);
 
+// ====== Error handler ======
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
   res.status(err.status || 500).json({ error: err.message || 'Server error' });
 });
 
+// ====== Server start ======
 async function start() {
   try {
     const mongo = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/sentinel';
     await mongoose.connect(mongo);
     console.log('Connected to MongoDB');
     await ensureAdmin();
+
     const port = process.env.PORT || 4000;
     server.listen(port, '0.0.0.0', () => console.log(`API listening on http://192.168.31.210:${port}`));
-    
+
+    // Optional: traffic simulation
     const intervalMs = parseInt(process.env.TRAFFIC_SIM_INTERVAL_MS || '0');
     if (intervalMs > 0) {
       console.log('Traffic simulation interval enabled every', intervalMs, 'ms');
