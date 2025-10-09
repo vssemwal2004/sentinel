@@ -64,7 +64,9 @@ export default function AdminDashboard(){
   async function downloadBusQrs(bus){
     setDownloadingBus(bus._id);
     try {
-      const base = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api');
+      const apiUrl = import.meta.env.VITE_API_URL; // full URL e.g., https://api.example.com/api
+      const apiOrigin = import.meta.env.VITE_API_ORIGIN; // origin only e.g., https://api.example.com
+      const base = apiUrl ? apiUrl.replace(/\/$/, '') : ((apiOrigin || 'http://localhost:4000').replace(/\/$/, '') + '/api');
       const url = `${base}/admin/buses/qr/download?busId=${bus._id}`;
       const res = await fetch(url, { credentials: 'include' });
       if(!res.ok) throw new Error('Failed');

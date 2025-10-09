@@ -1,6 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../../services/api';
 import { io } from 'socket.io-client';
+
+// Resolve API and WS endpoints from env vars with sensible defaults
+const apiUrl = import.meta.env.VITE_API_URL; // full URL e.g., https://api.example.com/api
+const apiOrigin = import.meta.env.VITE_API_ORIGIN; // origin only e.g., https://api.example.com
+const API_BASE = apiUrl ? apiUrl.replace(/\/$/, '') : ((apiOrigin || 'http://localhost:4000').replace(/\/$/, '') + '/api');
+const WS_BASE = import.meta.env.VITE_API_WS || (apiUrl ? new URL(apiUrl).origin : (apiOrigin || 'http://localhost:4000'));
 import LiveRideMap from '../../components/Map/LiveRideMap.jsx';
 
 let sockets = {};
@@ -123,7 +129,7 @@ export default function ConductorDashboard(){
     if(!selected) return;
     if(socketRef.current) { socketRef.current.emit('leaveRide', socketRef.current.currentRide); }
     if(!socketRef.current){
-      socketRef.current = io(import.meta.env.VITE_API_WS || 'http://localhost:4000', { transports: ['websocket'] });
+      socketRef.current = io(WS_BASE, { transports: ['websocket'] });
     }
     socketRef.current.currentRide = selected;
     socketRef.current.emit('joinRide', selected);
@@ -150,7 +156,7 @@ export default function ConductorDashboard(){
   async function markPaid(i){
     setLoading(true);
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/conductor/rides/${selected}/passengers/${i}/pay`, { 
+  await fetch(`${API_BASE}/conductor/rides/${selected}/passengers/${i}/pay`, { 
         method: 'PATCH', 
         credentials: 'include', 
         headers: { 'Content-Type': 'application/json' }

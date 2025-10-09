@@ -1,5 +1,5 @@
 import express from 'express';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import User from '../models/User.js';
 import { signToken, authRequired } from '../utils/auth.js';
 
@@ -14,7 +14,7 @@ router.post('/register', async (req, res, next) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await User.create({ name, email, phone, passwordHash, role: 'user' });
     const token = signToken(user);
-    res.cookie('token', token, { httpOnly: true, sameSite: 'lax' });
+    res.cookie('token', token, { httpOnly: true, sameSite: 'none', secure: true, path: '/' });
     res.json({ user: { id: user._id, name: user.name, role: user.role }, token });
   } catch (e) { next(e); }
 });
@@ -27,13 +27,13 @@ router.post('/login', async (req, res, next) => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if(!ok) return res.status(401).json({ error: 'Invalid credentials'});
     const token = signToken(user);
-    res.cookie('token', token, { httpOnly: true, sameSite: 'lax' });
+    res.cookie('token', token, { httpOnly: true, sameSite: 'none', secure: true, path: '/' });
     res.json({ user: { id: user._id, name: user.name, role: user.role }, token });
   } catch (e) { next(e); }
 });
 
 router.post('/logout', (req,res) => {
-  res.clearCookie('token');
+  res.clearCookie('token', { sameSite: 'none', secure: true, path: '/' });
   res.json({ ok: true });
 });
 

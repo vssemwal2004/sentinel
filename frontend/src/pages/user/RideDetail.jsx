@@ -11,6 +11,12 @@ import {
   Clock, Shield, CheckCircle, X
 } from 'lucide-react';
 
+// Resolve API and WS endpoints from env vars with sensible defaults
+const apiUrl = import.meta.env.VITE_API_URL; // full URL e.g., https://api.example.com/api
+const apiOrigin = import.meta.env.VITE_API_ORIGIN; // origin only e.g., https://api.example.com
+const API_BASE = apiUrl ? apiUrl.replace(/\/$/, '') : ((apiOrigin || 'http://localhost:4000').replace(/\/$/, '') + '/api');
+const WS_BASE = import.meta.env.VITE_API_WS || (apiUrl ? new URL(apiUrl).origin : (apiOrigin || 'http://localhost:4000'));
+
 let socket;
 
 export default function RideDetail() {
@@ -102,7 +108,7 @@ export default function RideDetail() {
     return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
   }, [id]);
   useEffect(() => {
-    socket = io(import.meta.env.VITE_API_WS || 'http://localhost:4000', { transports: ['websocket'] });
+    socket = io(WS_BASE, { transports: ['websocket'] });
     socket.emit('joinRide', id);
     socket.on('ride:update', msg => { if (msg.rideId === id) load(false); });
     socket.on('ride:userLocations', payload => { if (payload.rideId === id) setOtherUsers(payload.users); });
@@ -142,7 +148,7 @@ export default function RideDetail() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/rides/${id}/book`, {
+  const res = await fetch(`${API_BASE}/rides/${id}/book`, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ method, verificationToken, seatNumber: selectedSeat })
       });

@@ -2,6 +2,12 @@ import { useEffect, useState, useRef } from 'react';
 import TrafficMap from '../../components/Traffic/TrafficMap.jsx';
 import { io } from 'socket.io-client';
 
+// Resolve API and WS endpoints from env vars with sensible defaults
+const apiUrl = import.meta.env.VITE_API_URL; // full URL e.g., https://api.example.com/api
+const apiOrigin = import.meta.env.VITE_API_ORIGIN; // origin only e.g., https://api.example.com
+const API_BASE = apiUrl ? apiUrl.replace(/\/$/, '') : ((apiOrigin || 'http://localhost:4000').replace(/\/$/, '') + '/api');
+const WS_BASE = import.meta.env.VITE_API_WS || (apiUrl ? new URL(apiUrl).origin : (apiOrigin || 'http://localhost:4000'));
+
 export default function UserTraffic(){
   const [signals,setSignals] = useState([]);
   const [risks,setRisks] = useState([]);
@@ -12,15 +18,14 @@ export default function UserTraffic(){
   const [chatInput,setChatInput] = useState('');
 
   async function fetchSignals(){
-    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/traffic` , { credentials:'include'});
+    const res = await fetch(`${API_BASE}/traffic` , { credentials:'include'});
     const data = await res.json();
     setSignals(data.signals||[]);
     computePredictions(data.signals||[]);
   }
   async function computePredictions(list){
     if(!list.length){ setRisks([]); setCooldowns([]); return; }
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
-    const promises = list.map(sig => fetch(`${baseUrl}/traffic/${sig.signalId}/history?limit=2`, { credentials:'include'}).then(r=>r.json()).then(d=>({ sig, hist: d.history||[] })));
+  const promises = list.map(sig => fetch(`${API_BASE}/traffic/${sig.signalId}/history?limit=2`, { credentials:'include'}).then(r=>r.json()).then(d=>({ sig, hist: d.history||[] })));
     const results = await Promise.all(promises);
     const riskList=[], coolList=[]; const rank = l=> l==='Smooth'?0:l==='Moderate'?1:2;
     for(const { sig, hist } of results){
@@ -38,8 +43,7 @@ export default function UserTraffic(){
 
   useEffect(()=>{ fetchSignals(); },[]);
   useEffect(()=>{
-    const base = import.meta.env.VITE_API_WS || 'http://localhost:4000';
-    socketRef.current = io(base, { transports:['websocket'], withCredentials:true });
+    socketRef.current = io(WS_BASE, { transports:['websocket'], withCredentials:true });
     socketRef.current.on('traffic:update', payload => {
       if(payload?.signals){
         setSignals(prev => {
@@ -57,15 +61,13 @@ export default function UserTraffic(){
 
   useEffect(()=>{ loadChat(); },[]);
   async function loadChat(){
-    const base = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
-    const res = await fetch(`${base}/traffic/chat`, { credentials:'include' });
+    const res = await fetch(`${API_BASE}/traffic/chat`, { credentials:'include' });
     const data = await res.json();
     setChat(data.messages || []);
   }
   async function sendChat(){
     if(!chatInput.trim()) return;
-    const base = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
-    await fetch(`${base}/traffic/chat`, { method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ text: chatInput.trim() }) });
+    await fetch(`${API_BASE}/traffic/chat`, { method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ text: chatInput.trim() }) });
     setChatInput('');
   }
 
